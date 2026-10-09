@@ -1,54 +1,39 @@
-// =====================================================================
-// OSCAR - Exercicios MongoDB (mongosh / Compass)
-// Cole BLOCO POR BLOCO no >_MONGOSH do Compass (nao o arquivo inteiro).
-// Campos: id_registro, ano_filmagem, ano_cerimonia, cerimonia, categoria,
-//         nome_do_indicado, nome_do_filme, vencedor (0/1)
-// "NULL" aparece como TEXTO (string), nao como null de verdade.
-// =====================================================================
 
-// Antes de colar: selecione o banco que contem o import (ex.: rode sozinho no shell:  use NOME_DO_BANCO)
-
-// Constantes usadas em varias questoes
 var PIC   = ["BEST PICTURE","OUTSTANDING PICTURE","BEST MOTION PICTURE","OUTSTANDING MOTION PICTURE","OUTSTANDING PRODUCTION"]; // nomes que "Melhor Filme" teve ao longo dos anos
 var LEAD  = ["ACTOR","ACTOR IN A LEADING ROLE"];
-var ATUACAO = /^(ACTOR|ACTRESS)/;                       // inclui coadjuvantes
+var ATUACAO = /^(ACTOR|ACTRESS)/;                     
 var PRINCIPAIS = /^(ACTOR|ACTRESS)( IN A LEADING ROLE)?$/;
 var decada = { $subtract: ["$ano_cerimonia", { $mod: ["$ano_cerimonia", 10] }] };
 
-// =====================================================================
-// 0. LIMPEZA (rode ANTES de tudo - o arquivo tem 5 registros "sujos")
-// =====================================================================
-// 0.1 ano_cerimonia escrito por extenso ("Mil Novecentos e vinte 8")
+
 db.oscar_indicados.updateMany({ ano_cerimonia: "Mil Novecentos e vinte 8" }, { $set: { ano_cerimonia: 1928 } });
-// 0.2 campo com nome errado "ven cedor" (registro 7507)
+
 db.oscar_indicados.updateOne({ "ven cedor": { $exists: true } }, { $set: { vencedor: 1 }, $unset: { "ven cedor": "" } });
-// 0.3 campos intrusos que nao fazem parte do schema
+
 db.oscar_indicados.updateMany({}, { $unset: { diretor: "", fa: "", personagem_principal: "", botao_pressionado_mais_de_mil_vezes: "" } });
-// Conferencia (tudo deve dar 0):
+
 db.oscar_indicados.countDocuments({ ano_cerimonia: { $type: "string" } });
 db.oscar_indicados.countDocuments({ vencedor: { $exists: false } });
 
-// =====================================================================
-// NIVEL 1
-// =====================================================================
-db.oscar_indicados.countDocuments();                                   // 1.1 -> 10889
-db.oscar_indicados.distinct("categoria").length;                       // 1.2 -> 115 (o enunciado diz 92, mas o arquivo tem 115)
-db.oscar_indicados.distinct("categoria");
-db.oscar_indicados.find({}, { ano_cerimonia: 1, _id: 0 }).sort({ ano_cerimonia: 1 }).limit(1);    // 1.3 -> 1928 (nao 1500)
-db.oscar_indicados.find({}, { ano_cerimonia: 1, _id: 0 }).sort({ ano_cerimonia: -1 }).limit(1);   // 1.4 -> 2024
-db.oscar_indicados.distinct("cerimonia").length;                       // 1.5 -> 96
 
-// 1.6 Adicionar 2025 e 2026 (TEMPLATE - complete com a lista oficial)
+//NIVEL 1
+db.oscar_indicados.countDocuments();                                  
+db.oscar_indicados.distinct("categoria").length;          
+db.oscar_indicados.distinct("categoria");
+db.oscar_indicados.find({}, { ano_cerimonia: 1, _id: 0 }).sort({ ano_cerimonia: 1 }).limit(1);  
+db.oscar_indicados.find({}, { ano_cerimonia: 1, _id: 0 }).sort({ ano_cerimonia: -1 }).limit(1);   
+db.oscar_indicados.distinct("cerimonia").length;         
+
+// 1.6 
 var prox = (db.oscar_indicados.find().sort({ id_registro: -1 }).limit(1).toArray()[0] || { id_registro: 0 }).id_registro + 1;
 db.oscar_indicados.insertMany([
   { id_registro: prox, ano_filmagem: 2024, ano_cerimonia: 2025, cerimonia: 97,
     categoria: "BEST PICTURE", nome_do_indicado: "Producers de Anora", nome_do_filme: "Anora", vencedor: 1 }
-  // ... demais indicados de 2025 (cerimonia 97) e de 2026 (cerimonia 98), incrementando id_registro
+
 ]);
 
-// =====================================================================
+
 // NIVEL 2
-// =====================================================================
 db.oscar_indicados.aggregate([{ $group: { _id: "$categoria", total: { $sum: 1 } } }, { $sort: { total: -1 } }]);   // 2.1
 db.oscar_indicados.aggregate([{ $group: { _id: "$categoria", total: { $sum: 1 } } }, { $sort: { total: -1 } }, { $limit: 1 }]);  // 2.2 DIRECTING (469)
 db.oscar_indicados.aggregate([{ $group: { _id: "$categoria", total: { $sum: 1 } } }, { $sort: { total: 1 } }, { $limit: 5 }]);   // 2.3 varias empatam com 1
@@ -59,53 +44,49 @@ db.oscar_indicados.distinct("categoria", { cerimonia: 1 }).filter(c => !hoje.inc
 
 db.oscar_indicados.distinct("categoria", { categoria: /DIRECTING/ });                                                           // 2.6
 
-// =====================================================================
-// NIVEL 3  (troque o nome para Viola Davis, Amy Adams, Denzel Washington)
-// =====================================================================
-db.oscar_indicados.countDocuments({ nome_do_indicado: "Natalie Portman" });                       // 3.1 -> 3
-db.oscar_indicados.countDocuments({ nome_do_indicado: "Natalie Portman", vencedor: 1 });          // 3.2 -> 1
+
+// NIVEL 3  
+db.oscar_indicados.countDocuments({ nome_do_indicado: "Natalie Portman" });                      
+db.oscar_indicados.countDocuments({ nome_do_indicado: "Natalie Portman", vencedor: 1 });          
 db.oscar_indicados.find({ nome_do_indicado: "Natalie Portman" }, { ano_cerimonia: 1, nome_do_filme: 1, _id: 0 }).sort({ ano_cerimonia: 1 });  // 3.3
-db.oscar_indicados.find({ nome_do_indicado: "Natalie Portman" },                                  // 3.4
+db.oscar_indicados.find({ nome_do_indicado: "Natalie Portman" },                                
        { ano_cerimonia: 1, categoria: 1, nome_do_filme: 1, vencedor: 1, _id: 0 }).sort({ ano_cerimonia: 1 });
 
-// Atalho para todas as perguntas de pessoa:
 function resumo(nome) {
   var r = db.oscar_indicados.find({ nome_do_indicado: nome }, { ano_cerimonia: 1, categoria: 1, nome_do_filme: 1, vencedor: 1, _id: 0 })
            .sort({ ano_cerimonia: 1 }).toArray();
   print(nome, "| indicacoes:", r.length, "| oscars:", r.filter(x => x.vencedor === 1).length);
   return r;
 }
-resumo("Viola Davis");        // 3.5-3.7 -> 4 indicacoes, 1 Oscar (Fences, 2017)
-resumo("Amy Adams");          // 3.8-3.9 -> 6 indicacoes, 0 Oscars (6 sem ganhar)
-resumo("Denzel Washington");  // 3.10-3.12 -> 9 indicacoes, 2 Oscars (Glory 1990, Training Day 2002)
+resumo("Viola Davis");        
+resumo("Amy Adams");          
+resumo("Denzel Washington");  
 
-// =====================================================================
+
 // NIVEL 4
-// =====================================================================
-db.oscar_indicados.find({ categoria: "ACTRESS", vencedor: 1 }).sort({ ano_cerimonia: 1 }).limit(1);   // 4.1 Janet Gaynor, 1928, 7th Heaven
-db.oscar_indicados.find({ categoria: "ACTOR",   vencedor: 1 }).sort({ ano_cerimonia: 1 }).limit(1);   // 4.2 Emil Jannings, 1928, The Last Command
-db.oscar_indicados.countDocuments({ vencedor: 1 });                                                   // 4.3 -> 2464
-db.oscar_indicados.find({ categoria: { $in: PIC }, vencedor: 1 }, { ano_cerimonia: 1, nome_do_filme: 1, _id: 0 }).sort({ ano_cerimonia: 1 });  // 4.4 -> 85
-db.oscar_indicados.distinct("nome_do_filme", { vencedor: 1, nome_do_filme: { $ne: "NULL" } }).length;  // 4.5 -> 1328
 
-// =====================================================================
+db.oscar_indicados.find({ categoria: "ACTRESS", vencedor: 1 }).sort({ ano_cerimonia: 1 }).limit(1);   
+db.oscar_indicados.find({ categoria: "ACTOR",   vencedor: 1 }).sort({ ano_cerimonia: 1 }).limit(1);   
+db.oscar_indicados.countDocuments({ vencedor: 1 });                                                   
+db.oscar_indicados.find({ categoria: { $in: PIC }, vencedor: 1 }, { ano_cerimonia: 1, nome_do_filme: 1, _id: 0 }).sort({ ano_cerimonia: 1 });  
+db.oscar_indicados.distinct("nome_do_filme", { vencedor: 1, nome_do_filme: { $ne: "NULL" } }).length;  
+
 // NIVEL 5   (atores/atrizes = categorias que comecam com ACTOR/ACTRESS)
-// =====================================================================
 var porNome = [
   { $match: { categoria: ATUACAO, nome_do_indicado: { $ne: "NULL" } } },
   { $group: { _id: "$nome_do_indicado", indicacoes: { $sum: 1 }, vitorias: { $sum: "$vencedor" } } }
 ];
-db.oscar_indicados.aggregate([...porNome, { $match: { indicacoes: { $gt: 1 } } }, { $sort: { indicacoes: -1 } }]);                  // 5.1
-db.oscar_indicados.aggregate([...porNome, { $sort: { indicacoes: -1 } }, { $limit: 3 }]);                                           // 5.2
-db.oscar_indicados.aggregate([...porNome, { $match: { indicacoes: { $gt: 3 }, vitorias: 0 } }, { $sort: { indicacoes: -1 } }]);     // 5.3
+db.oscar_indicados.aggregate([...porNome, { $match: { indicacoes: { $gt: 1 } } }, { $sort: { indicacoes: -1 } }]);                  
+db.oscar_indicados.aggregate([...porNome, { $sort: { indicacoes: -1 } }, { $limit: 3 }]);                                           
+db.oscar_indicados.aggregate([...porNome, { $match: { indicacoes: { $gt: 3 }, vitorias: 0 } }, { $sort: { indicacoes: -1 } }]);     
 
-db.oscar_indicados.aggregate([                                                                                                       // 5.4
+db.oscar_indicados.aggregate([                                                                                                      
   { $match: { nome_do_indicado: { $ne: "NULL" } } },
   { $group: { _id: "$nome_do_indicado", categorias: { $addToSet: "$categoria" } } },
   { $match: { "categorias.1": { $exists: true } } },
   { $limit: 20 }
 ]);
-// Obs 5.4: o mesmo ator em "ACTOR" e "ACTOR IN A LEADING ROLE" conta como categorias diferentes (renomeacao).
+
 
 db.oscar_indicados.aggregate([{ $match: { nome_do_indicado: { $ne: "NULL" } } },                                                     // 5.5 -> 5589
             { $group: { _id: "$nome_do_indicado", n: { $sum: 1 } } },
@@ -115,19 +96,19 @@ db.oscar_indicados.aggregate([{ $group: { _id: "$ano_cerimonia", indicacoes: { $
 db.oscar_indicados.aggregate([{ $group: { _id: "$ano_cerimonia", nomes: { $addToSet: "$nome_do_indicado" } } },                      // variante: pessoas distintas
             { $project: { distintos: { $size: "$nomes" } } }, { $sort: { distintos: -1 } }, { $limit: 3 }]);
 
-// =====================================================================
+
 // NIVEL 6
-// =====================================================================
+
 var ts = { nome_do_filme: /^Toy Story/ };
-db.oscar_indicados.distinct("ano_cerimonia", { ...ts, vencedor: 1 });                       // 6.1 -> [2011, 2020]
-db.oscar_indicados.countDocuments(ts);                                                      // 6.2 -> 11
+db.oscar_indicados.distinct("ano_cerimonia", { ...ts, vencedor: 1 });                       
+db.oscar_indicados.countDocuments(ts);                                                    
 db.oscar_indicados.aggregate([{ $match: ts }, { $group: { _id: { filme: "$nome_do_filme", cat: "$categoria" }, venceu: { $max: "$vencedor" } } }, { $sort: { "_id.filme": 1 } }]);  // 6.3
 
-db.oscar_indicados.distinct("ano_cerimonia", { nome_do_filme: "Crash" });                   // 6.4 -> 2006 (78a cerimonia)
-db.oscar_indicados.countDocuments({ nome_do_filme: "Crash" });                              // 6.5 -> 6
-db.oscar_indicados.find({ nome_do_filme: "Crash", categoria: { $in: PIC } });               // 6.6 -> vencedor: 1 (sim)
+db.oscar_indicados.distinct("ano_cerimonia", { nome_do_filme: "Crash" });                   
+db.oscar_indicados.countDocuments({ nome_do_filme: "Crash" });                              
+db.oscar_indicados.find({ nome_do_filme: "Crash", categoria: { $in: PIC } });              
 
-// 6.7/6.8 "Central do Brasil" esta no banco com o titulo em ingles: "Central Station"
+// 6.7/6.8 
 db.oscar_indicados.find({ nome_do_filme: /Central Station/ });                              // 2 registros (Fernanda Montenegro/ACTRESS e Brazil/FOREIGN LANGUAGE FILM)
 db.oscar_indicados.countDocuments({ nome_do_filme: "Central Station" });                    // -> 2
 
