@@ -1,4 +1,4 @@
-
+//js
 var PIC   = ["BEST PICTURE","OUTSTANDING PICTURE","BEST MOTION PICTURE","OUTSTANDING MOTION PICTURE","OUTSTANDING PRODUCTION"]; // nomes que "Melhor Filme" teve ao longo dos anos
 var LEAD  = ["ACTOR","ACTOR IN A LEADING ROLE"];
 var ATUACAO = /^(ACTOR|ACTRESS)/;                     
@@ -71,7 +71,7 @@ db.oscar_indicados.countDocuments({ vencedor: 1 });
 db.oscar_indicados.find({ categoria: { $in: PIC }, vencedor: 1 }, { ano_cerimonia: 1, nome_do_filme: 1, _id: 0 }).sort({ ano_cerimonia: 1 });  
 db.oscar_indicados.distinct("nome_do_filme", { vencedor: 1, nome_do_filme: { $ne: "NULL" } }).length;  
 
-// NIVEL 5   (atores/atrizes = categorias que comecam com ACTOR/ACTRESS)
+// NIVEL 5   
 var porNome = [
   { $match: { categoria: ATUACAO, nome_do_indicado: { $ne: "NULL" } } },
   { $group: { _id: "$nome_do_indicado", indicacoes: { $sum: 1 }, vitorias: { $sum: "$vencedor" } } }
@@ -108,46 +108,42 @@ db.oscar_indicados.distinct("ano_cerimonia", { nome_do_filme: "Crash" });
 db.oscar_indicados.countDocuments({ nome_do_filme: "Crash" });                              
 db.oscar_indicados.find({ nome_do_filme: "Crash", categoria: { $in: PIC } });              
 
-// 6.7/6.8 
+
 db.oscar_indicados.find({ nome_do_filme: /Central Station/ });                              // 2 registros (Fernanda Montenegro/ACTRESS e Brazil/FOREIGN LANGUAGE FILM)
 db.oscar_indicados.countDocuments({ nome_do_filme: "Central Station" });                    // -> 2
 
-// =====================================================================
-// NIVEL 7  (operacoes de escrita - faca backup antes: Collection > Export)
-// =====================================================================
-// 7.1 No arquivo, "vencedor" JA e numero (0/1), nao string. Conferencia:
-db.oscar_indicados.countDocuments({ vencedor: { $type: "string" } });                       // -> 0
-// Se o professor realmente exigir booleano (depois disso, troque vencedor:1 por vencedor:true nas queries
-// e $sum:"$vencedor" por $sum:{$cond:["$vencedor",1,0]}):
-// db.oscar_indicados.updateMany({}, [{ $set: { vencedor: { $eq: ["$vencedor", 1] } } }]);
 
-// 7.2 Filmes nunca indicados (em colecao separada para nao distorcer as estatisticas)
-["Drive", "Paddington 2", "Heat"].map(f => db.oscar_indicados.countDocuments({ nome_do_filme: f }));   // confira: deve dar 0 0 0
+// NIVEL 7  
+db.oscar_indicados.countDocuments({ vencedor: { $type: "string" } });                   
+
+
+
+
+["Drive", "Paddington 2", "Heat"].map(f => db.oscar_indicados.countDocuments({ nome_do_filme: f }));   
 db.filmes_nao_indicados.insertMany([
   { nome_do_filme: "Drive",        ano_filmagem: 2011, diretor: "Nicolas Winding Refn", motivo: "Fotografia, trilha e montagem marcantes" },
   { nome_do_filme: "Paddington 2", ano_filmagem: 2017, diretor: "Paul King",            motivo: "Roteiro e direcao impecaveis" },
   { nome_do_filme: "Heat",         ano_filmagem: 1995, diretor: "Michael Mann",         motivo: "Direcao, som e atuacoes" }
 ]);
 
-// 7.3 Nova categoria (copiando os vencedores 2020-2024 de INTERNATIONAL FEATURE FILM; nominee = pais)
+
 var p = (db.oscar_indicados.find().sort({ id_registro: -1 }).limit(1).toArray()[0] || { id_registro: 0 }).id_registro + 1;
 var docs = db.oscar_indicados.find({ categoria: "INTERNATIONAL FEATURE FILM", vencedor: 1, ano_cerimonia: { $gte: 2020, $lte: 2024 } }, { _id: 0 })
             .toArray().map((d, i) => ({ ...d, id_registro: p + i, categoria: "BEST INTERNATIONAL FEATURE FILM" }));
 db.oscar_indicados.insertMany(docs);
 
-// 7.4 Espacos extras nos nomes dos filmes (3 registros)
-db.oscar_indicados.find({ nome_do_filme: /(^\s|\s$|\s{2,})/ }, { nome_do_filme: 1 });       // veja antes
+
+db.oscar_indicados.find({ nome_do_filme: /(^\s|\s$|\s{2,})/ }, { nome_do_filme: 1 });       
 db.oscar_indicados.updateMany({ nome_do_filme: /(^\s|\s$|\s{2,})/ }, [{ $set: { nome_do_filme: { $trim: { input: {
   $reduce: { input: { $filter: { input: { $split: ["$nome_do_filme", " "] }, cond: { $ne: ["$$this", ""] } } },
              initialValue: "", in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", " ", "$$this"] }] } } } } } } }]);
 
-// 7.5 Remover NULL (sao strings "NULL"; 319 registros - quase todos premios honorarios)
+
 db.oscar_indicados.countDocuments({ nome_do_filme: "NULL" });
 db.oscar_indicados.deleteMany({ nome_do_filme: "NULL" });
 
-// =====================================================================
+
 // NIVEL 8
-// =====================================================================
 db.oscar_indicados.aggregate([{ $group: { _id: decada, indicacoes: { $sum: 1 } } }, { $sort: { _id: 1 } }]);                       // 8.1
 db.oscar_indicados.aggregate([{ $group: { _id: decada, indicacoes: { $sum: 1 } } }, { $sort: { indicacoes: -1 } }, { $limit: 1 }]); // 8.2 -> 1940s
 db.oscar_indicados.aggregate([{ $group: { _id: { d: decada, c: "$categoria" } } },                                                  // 8.3
@@ -161,29 +157,27 @@ var a = dec[0], z = dec[dec.length - 1];
 print("Bruto: ", ((z.total - a.total) / a.total * 100).toFixed(1) + "%");     // 1920s e 2020s sao decadas INCOMPLETAS
 print("Por cerimonia:", ((z.media - a.media) / a.media * 100).toFixed(1) + "%");   // comparacao mais justa
 
-// =====================================================================
-// NIVEL 9
-// =====================================================================
-db.oscar_indicados.find({ nome_do_indicado: "Sidney Poitier" }, { ano_cerimonia: 1, nome_do_filme: 1, vencedor: 1, _id: 0 }).sort({ ano_cerimonia: 1 });
-// 9.1 -> 1959, The Defiant Ones | 9.2 -> NAO (venceu so em 1964, Lilies of the Field)
 
-// 9.3 A base NAO tem campo de raca/etnia: e preciso informar a lista de nomes manualmente (confira a lista!)
+// NIVEL 9
+db.oscar_indicados.find({ nome_do_indicado: "Sidney Poitier" }, { ano_cerimonia: 1, nome_do_filme: 1, vencedor: 1, _id: 0 }).sort({ ano_cerimonia: 1 });
+
+
+
 var negros = ["Hattie McDaniel","Ethel Waters","Dorothy Dandridge","Sidney Poitier","Juanita Moore","Beah Richards"];
 db.oscar_indicados.find({ nome_do_indicado: { $in: negros }, categoria: ATUACAO, ano_cerimonia: { $lt: 1970 } },
        { nome_do_indicado: 1, ano_cerimonia: 1, categoria: 1, nome_do_filme: 1, vencedor: 1, _id: 0 }).sort({ ano_cerimonia: 1 });
 
-// 9.4 Mulheres diretoras (lista manual) - 1) filmes que elas dirigiram, 2) desses, os que ganharam algo
 var mulheres = ["Lina Wertmüller","Jane Campion","Sofia Coppola","Kathryn Bigelow","Greta Gerwig","Chloé Zhao","Emerald Fennell","Justine Triet"];
 var filmesDelas = db.oscar_indicados.distinct("nome_do_filme", { categoria: /^DIRECTING/, nome_do_indicado: { $in: mulheres } });
 db.oscar_indicados.aggregate([{ $match: { nome_do_filme: { $in: filmesDelas }, vencedor: 1 } },
              { $group: { _id: "$nome_do_filme", oscars: { $sum: 1 }, categorias: { $addToSet: "$categoria" } } }]);
 
-// 9.5/9.6 Denzel x Jamie Foxx no mesmo ano?
+
 var anosD = db.oscar_indicados.distinct("ano_cerimonia", { nome_do_indicado: "Denzel Washington" });
 var anosJ = db.oscar_indicados.distinct("ano_cerimonia", { nome_do_indicado: "Jamie Foxx" });
 anosD.filter(x => anosJ.includes(x));       // -> [] : NAO concorreram juntos (Foxx: so 2005; Denzel: 1988...2022, sem 2005). 9.6 nao se aplica.
 
-// 9.7 Filmes com varios Oscars na mesma cerimonia
+
 db.oscar_indicados.aggregate([{ $match: { vencedor: 1, nome_do_filme: { $ne: "NULL" } } },
              { $group: { _id: { cer: "$cerimonia", filme: "$nome_do_filme" }, oscars: { $sum: 1 } } },
              { $match: { oscars: { $gt: 1 } } }, { $sort: { oscars: -1 } }, { $limit: 20 }]);
@@ -251,9 +245,8 @@ db.oscar_indicados.aggregate([                                                  
           { $ne: ["$$n.ano", "$$w.ano"] }, { $ne: ["$$n.cat", "$$w.cat"] }] } } } }, 0] }] } } } } },
   { $match: { "casos.0": { $exists: true } } }]);
 
-// =====================================================================
+
 // NIVEL 12
-// =====================================================================
 db.oscar_indicados.aggregate([...filmesPremiados, { $limit: 20 }]);                                                                  // 12.1
 
 db.oscar_indicados.aggregate([                                                                                                       // 12.2
@@ -271,7 +264,7 @@ db.oscar_indicados.aggregate([{ $match: { vencedor: 1, nome_do_filme: { $ne: "NU
 db.oscar_indicados.aggregate([{ $match: { vencedor: 1 } }, { $group: { _id: "$ano_cerimonia", premiacoes: { $sum: 1 } } },          // 12.4
              { $sort: { premiacoes: -1 } }, { $limit: 5 }]);
 
-// 12.5 Primeiros historicos
+// 12.5 
 db.oscar_indicados.find({ categoria: { $in: PIC }, vencedor: 1 }).sort({ ano_cerimonia: 1 }).limit(1);                               // 1o Melhor Filme: Wings
 db.oscar_indicados.find({ categoria: "DIRECTING", vencedor: 1, nome_do_indicado: "Kathryn Bigelow" });                               // 1a mulher a vencer Direcao (2010)
 db.oscar_indicados.find({ categoria: "DIRECTING", nome_do_indicado: "Lina Wertmüller" });                                            // 1a mulher indicada (1977)
@@ -281,13 +274,13 @@ db.oscar_indicados.find({ categoria: "ANIMATED FEATURE FILM", vencedor: 1 }).sor
 db.oscar_indicados.find({ categoria: "INTERNATIONAL FEATURE FILM", vencedor: 1, nome_do_filme: "Parasite" });                        // 1o nao-ingles em Melhor Filme: ver categoria PIC em 2020
 db.oscar_indicados.find({ categoria: { $in: PIC }, nome_do_filme: "Parasite" });
 
-// 12.6 Injusticas
+
 db.oscar_indicados.aggregate([...porNome, { $match: { indicacoes: { $gte: 6 }, vitorias: 0 } }, { $sort: { indicacoes: -1 } }]);     // atores
 db.oscar_indicados.aggregate([{ $match: { nome_do_filme: { $ne: "NULL" } } },                                                       // filmes (>= 7 indicacoes, 0 Oscars)
              { $group: { _id: { cer: "$cerimonia", filme: "$nome_do_filme" }, n: { $sum: 1 }, v: { $sum: "$vencedor" } } },
              { $match: { n: { $gte: 7 }, v: 0 } }, { $sort: { n: -1 } }]);
 
-// 12.7 P(Melhor Filme | filme com exatamente 10 indicacoes)
+
 db.oscar_indicados.aggregate([{ $match: { nome_do_filme: { $ne: "NULL" } } },
              { $group: { _id: { cer: "$cerimonia", filme: "$nome_do_filme" }, n: { $sum: 1 },
                          ganhouMF: { $max: { $cond: [{ $and: [{ $in: ["$categoria", PIC] }, { $eq: ["$vencedor", 1] }] }, 1, 0] } } } },
@@ -295,7 +288,7 @@ db.oscar_indicados.aggregate([{ $match: { nome_do_filme: { $ne: "NULL" } } },
              { $group: { _id: null, filmes: { $sum: 1 }, ganharam: { $sum: "$ganhouMF" } } },
              { $addFields: { probabilidade: { $divide: ["$ganharam", "$filmes"] } } }]);
 
-// 12.8 Media de indicacoes (a Melhor Ator) ANTES da primeira vitoria
+
 db.oscar_indicados.aggregate([{ $match: { categoria: { $in: LEAD }, nome_do_indicado: { $ne: "NULL" } } },
              { $group: { _id: "$nome_do_indicado", anos: { $push: "$ano_cerimonia" },
                          primeira: { $min: { $cond: [{ $eq: ["$vencedor", 1] }, "$ano_cerimonia", null] } } } },
@@ -310,9 +303,8 @@ db.oscar_indicados.aggregate([{ $match: { vencedor: 1, nome_do_indicado: { $ne: 
              { $group: { _id: "$_id.c", maior_vencedor: { $first: "$_id.n" }, vezes: { $first: "$vezes" }, total: { $sum: "$vezes" } } },
              { $match: { total: { $gte: 20 } } }, { $sort: { vezes: -1 } }, { $limit: 10 }]);
 
-// =====================================================================
+
 // NIVEL 13
-// =====================================================================
 db.oscar_indicados.distinct("nome_do_filme", { nome_do_filme: /^The /, vencedor: 1 });                                               // 13.1
 db.oscar_indicados.find({ $and: [{ nome_do_indicado: /[A-Za-z]-[A-Za-z]/ }, { nome_do_indicado: /^[^,;&0-9]{3,45}$/ }] },            // 13.2
        { nome_do_indicado: 1, _id: 0 }).limit(30);
@@ -320,7 +312,6 @@ db.oscar_indicados.find({ $and: [{ nome_do_indicado: /[A-Za-z]-[A-Za-z]/ }, { no
 db.oscar_indicados.aggregate([{ $match: { vencedor: 1, nome_do_filme: { $ne: "NULL" } } },                                           // 13.3 (empate = filmes DIFERENTES vencendo a mesma categoria na mesma cerimonia)
              { $group: { _id: { cer: "$cerimonia", cat: "$categoria" }, filmes: { $addToSet: "$nome_do_filme" } } },
              { $match: { "filmes.1": { $exists: true } } }, { $sort: { "_id.cer": 1 } }]);
-// Obs: categorias honorarias/tecnicas antigas tem varios vencedores por desenho; filtre se quiser so empates "de verdade".
 
 db.oscar_indicados.aggregate([{ $match: { categoria: { $in: PIC }, vencedor: 1 } }, { $sample: { size: 5 } },                        // 13.4
              { $project: { _id: 0, ano_cerimonia: 1, nome_do_filme: 1 } }]);
