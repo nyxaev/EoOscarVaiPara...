@@ -1,20 +1,5 @@
 # Oscar – Exercícios MongoDB: respostas e código
 
-Collection: `db.oscar_indicados` (importada do `OSCAR.json`). Resultados conferidos por cálculo independente em Python sobre o mesmo arquivo.
-
-## Preparação (rodar uma vez, antes de tudo)
-
-O arquivo tem 5 registros "sujos", corrigidos aqui:
-
-```js
-// ano_cerimonia escrito por extenso
-db.oscar_indicados.updateMany({ ano_cerimonia: "Mil Novecentos e vinte 8" }, { $set: { ano_cerimonia: 1928 } });
-// campo com nome errado "ven cedor"
-db.oscar_indicados.updateOne({ "ven cedor": { $exists: true } }, { $set: { vencedor: 1 }, $unset: { "ven cedor": "" } });
-// campos intrusos
-db.oscar_indicados.updateMany({}, { $unset: { diretor: "", fa: "", personagem_principal: "", botao_pressionado_mais_de_mil_vezes: "" } });
-```
-
 Variáveis usadas nas consultas:
 
 ```js
