@@ -120,6 +120,6 @@ Pontos que merecem atenção ao trabalhar com este arquivo:
 
 ## 👤 Autor
 
-**Seu nome** · [@seu-usuario](https://github.com/seu-usuario)
+**Seu nome** · [@seu-usuario](https://github.com/nyxaev)
 
 Trabalho acadêmico de MongoDB. Os dados pertencem à base de exercícios fornecida pelo professor.
